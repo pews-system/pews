@@ -30,7 +30,7 @@ class IssueVisualizer:
         fig.update_layout(
             xaxis_title="Category",
             yaxis_title="Number of Issues",
-            height=500
+            height=400  # Reduced height
         )
         
         return fig
@@ -85,7 +85,7 @@ class IssueVisualizer:
             color_discrete_map=colors
         )
         
-        fig.update_layout(height=500)
+        fig.update_layout(height=400)  # Reduced height
         
         return fig
     
@@ -137,7 +137,7 @@ class IssueVisualizer:
         )
         
         fig.update_layout(
-            height=500,
+            height=400,  # Reduced height
             xaxis_title="Category",
             yaxis_title="Number of Issues"
         )
@@ -160,7 +160,7 @@ class IssueVisualizer:
             color_continuous_scale="Viridis"
         )
         
-        fig.update_layout(height=500)
+        fig.update_layout(height=400)  # Reduced height
         
         return fig
     

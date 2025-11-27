@@ -64,7 +64,7 @@ class SentimentEarlyWarningSystem:
         # Data collection controls
         st.sidebar.subheader("Data Collection")
         location = st.sidebar.text_input("Location (used for Twitter)", "Nairobi")
-        max_posts = st.sidebar.slider("Maximum posts per category", 10, 100, 50)
+        max_posts = st.sidebar.slider("Maximum posts per category", 5, 30, 15)  # Reduced default and max
         
         # Collect data button
         if st.sidebar.button("Collect Data"):
@@ -99,8 +99,8 @@ class SentimentEarlyWarningSystem:
                 fig = self.visualizer.create_priority_pie_chart(st.session_state.data)
                 st.plotly_chart(fig, use_container_width=True)
             
-            # Sentiment overview below
-            st.markdown("**Sentiment Distribution**")
+            # Simple sentiment overview
+            st.markdown("**Sentiment Overview**")
             sentiment_counts = st.session_state.data['sentiment'].value_counts()
             st.bar_chart(sentiment_counts)
         
@@ -113,22 +113,13 @@ class SentimentEarlyWarningSystem:
                 fig = self.visualizer.create_sentiment_by_category(st.session_state.data)
                 st.plotly_chart(fig, use_container_width=True)
             with col2:
-                st.markdown("**Issue Heatmap**")
-                fig = self.visualizer.create_heatmap(st.session_state.data)
-                st.plotly_chart(fig, use_container_width=True)
-            
-            # Scatter plot below
-            st.markdown("**Sentiment vs. Urgency Analysis**")
-            fig = self.visualizer.create_sentiment_scatter(st.session_state.data)
-            st.plotly_chart(fig, use_container_width=True)
+                st.markdown("**Priority Distribution**")
+                priority_counts = st.session_state.data['priority'].value_counts()
+                st.bar_chart(priority_counts)
         
         # Trends Section
         with st.container():
             st.subheader("📈 Trends & Platform Analysis")
-            # Main trend chart
-            fig = self.visualizer.create_trend_line_chart(st.session_state.data)
-            st.plotly_chart(fig, use_container_width=True)
-            
             # Platform and category stats side by side
             col1, col2 = st.columns(2)
             with col1:

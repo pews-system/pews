@@ -1,7 +1,6 @@
 import re
 import nltk
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
-from transformers import pipeline
 import pandas as pd
 from collections import Counter
 from typing import Dict, List, Tuple
@@ -13,14 +12,8 @@ nltk.download('vader_lexicon')
 class IssueAnalyzer:
     def __init__(self):
         """Initialize the analyzer with sentiment models"""
-        # VADER for sentiment analysis
+        # VADER for sentiment analysis (lightweight)
         self.vader = SentimentIntensityAnalyzer()
-        
-        # Hugging Face model for more advanced sentiment analysis
-        self.sentiment_pipeline = pipeline(
-            "sentiment-analysis",
-            model="cardiffnlp/twitter-roberta-base-sentiment"
-        )
         
         # Keywords for different issue categories
         self.issue_keywords = {
@@ -48,29 +41,17 @@ class IssueAnalyzer:
         return text
     
     def analyze_sentiment(self, text: str) -> Dict[str, float]:
-        """Analyze sentiment of text using both VADER and Hugging Face"""
-        # VADER sentiment
+        """Analyze sentiment of text using VADER (lightweight)"""
+        # VADER sentiment analysis
         vader_scores = self.vader.polarity_scores(text)
         
-        # Hugging Face sentiment
-        hf_result = self.sentiment_pipeline(text)[0]
-        
-        # Normalize scores to -1 to 1 scale
-        if hf_result['label'] == 'LABEL_0':  # Negative
-            hf_score = -hf_result['score']
-        elif hf_result['label'] == 'LABEL_2':  # Positive
-            hf_score = hf_result['score']
-        else:  # Neutral
-            hf_score = 0
-        
-        # Combine scores (simple average)
-        combined_score = (vader_scores['compound'] + hf_score) / 2
+        # Use compound score for sentiment classification
+        compound_score = vader_scores['compound']
         
         return {
-            "vader": vader_scores['compound'],
-            "huggingface": hf_score,
-            "combined": combined_score,
-            "label": "positive" if combined_score > 0.1 else "negative" if combined_score < -0.1 else "neutral"
+            "vader": compound_score,
+            "combined": compound_score,
+            "label": "positive" if compound_score > 0.1 else "negative" if compound_score < -0.1 else "neutral"
         }
     
     def categorize_issue(self, text: str) -> Tuple[str, float]:
