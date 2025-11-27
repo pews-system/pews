@@ -1,0 +1,214 @@
+import os
+import pandas as pd
+from datetime import datetime
+import streamlit as st
+import plotly.graph_objects as go
+from dotenv import load_dotenv
+
+# Import our modules
+from data_manager import DataManager
+from issue_analyzer import IssueAnalyzer
+from visualizer import IssueVisualizer
+
+# Load environment variables
+load_dotenv()
+
+class SentimentEarlyWarningSystem:
+    def __init__(self):
+        """Initialize the system"""
+        # Initialize components
+        self.data_manager = DataManager()
+        self.analyzer = IssueAnalyzer()
+        self.visualizer = IssueVisualizer()
+        
+        # Initialize session state
+        if 'data' not in st.session_state:
+            st.session_state.data = None
+        if 'summary' not in st.session_state:
+            st.session_state.summary = None
+        if 'source' not in st.session_state:
+            st.session_state.source = None
+    
+    def collect_data(self, location: str, max_posts: int):
+        """Collect and analyze social media data"""
+        with st.spinner("Collecting data..."):
+            # Collect tweets/posts using the data manager
+            raw_df, source = self.data_manager.collect_data(location, max_posts)
+            
+            if raw_df.empty:
+                st.error("Failed to collect data from both Twitter and Reddit. Please check your API credentials or try again later.")
+                st.session_state.source = "None"
+                return
+            
+            # Analyze the collected data
+            with st.spinner("Analyzing content..."):
+                analyzed_df = self.analyzer.analyze_tweets(raw_df)
+                
+                # Generate summary
+                summary = self.analyzer.generate_summary(analyzed_df)
+                
+                # Store in session state
+                st.session_state.data = analyzed_df
+                st.session_state.summary = summary
+                st.session_state.source = source
+    
+    def run_dashboard(self):
+        """Run the Streamlit dashboard"""
+        st.set_page_config(layout="wide")
+        st.title("PSEWS")
+        st.markdown("Detect community concerns early from public discussions on Twitter and Reddit.")
+        
+        # Sidebar for controls
+        st.sidebar.header("Controls")
+        
+        # Data collection controls
+        st.sidebar.subheader("Data Collection")
+        location = st.sidebar.text_input("Location (used for Twitter)", "Nairobi")
+        max_posts = st.sidebar.slider("Maximum posts per category", 10, 100, 50)
+        
+        # Collect data button
+        if st.sidebar.button("Collect Data"):
+            self.collect_data(location, max_posts)
+        
+        # Display data source
+        if st.session_state.source:
+            st.sidebar.info(f"Data Source: **{st.session_state.source}**")
+
+        # Check if data is available
+        if st.session_state.data is None or st.session_state.data.empty:
+            st.info("No data available. Please collect data first.")
+            return
+        
+        # Display summary
+        st.header("Summary")
+        summary = st.session_state.summary
+        
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Issues", summary['total_tweets'])
+        col2.metric("High Priority Issues", summary['priority_counts'].get('HIGH', 0))
+        col3.metric("Urgent Issues", len(summary['urgent_issues']))
+        
+        # Overview Section
+        with st.container():
+            st.subheader("Overview")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                fig = self.visualizer.create_category_bar_chart(st.session_state.data)
+                st.plotly_chart(fig, use_container_width=True)
+            with col2:
+                fig = self.visualizer.create_priority_pie_chart(st.session_state.data)
+                st.plotly_chart(fig, use_container_width=True)
+            with col3:
+                # Add a simple sentiment distribution chart or summary
+                sentiment_counts = st.session_state.data['sentiment'].value_counts()
+                st.bar_chart(sentiment_counts)
+        
+        # Category Analysis Section
+        with st.container():
+            st.subheader("Category Analysis")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                fig = self.visualizer.create_category_bar_chart(st.session_state.data)
+                st.plotly_chart(fig, use_container_width=True)
+            with col2:
+                fig = self.visualizer.create_sentiment_by_category(st.session_state.data)
+                st.plotly_chart(fig, use_container_width=True)
+            with col3:
+                fig = self.visualizer.create_heatmap(st.session_state.data)
+                st.plotly_chart(fig, use_container_width=True)
+        
+        # Priority Analysis Section
+        with st.container():
+            st.subheader("Priority Analysis")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                fig = self.visualizer.create_sentiment_scatter(st.session_state.data)
+                st.plotly_chart(fig, use_container_width=True)
+            with col2:
+                fig = self.visualizer.create_priority_pie_chart(st.session_state.data)
+                st.plotly_chart(fig, use_container_width=True)
+            with col3:
+                # Add urgency statistics
+                urgency_count = st.session_state.data['is_urgent'].sum()
+                total_count = len(st.session_state.data)
+                st.metric("Urgent Issues", f"{urgency_count}/{total_count}")
+                st.metric("Urgency Rate", f"{urgency_count/total_count*100:.1f}%")
+        
+        # Trends Section
+        with st.container():
+            st.subheader("Trends")
+            col1, col2, col3 = st.columns([2, 1, 1])  # Wider column for the main chart
+            with col1:
+                fig = self.visualizer.create_trend_line_chart(st.session_state.data)
+                st.plotly_chart(fig, use_container_width=True)
+            with col2:
+                platform_counts = st.session_state.data['source'].value_counts()
+                st.bar_chart(platform_counts)
+            with col3:
+                top_categories = st.session_state.data['category'].value_counts().head(5)
+                st.bar_chart(top_categories)
+        
+        # Urgent Issues Section
+        with st.container():
+            st.subheader("Urgent Issues")
+            urgent_df = pd.DataFrame(summary['urgent_issues'])
+            if not urgent_df.empty:
+                st.dataframe(urgent_df)
+            else:
+                st.info("No urgent issues detected.")
+        
+        # Findings Section
+        with st.container():
+            st.subheader("🔍 Key Findings & Actions Required")
+            
+            # Calculate key insights
+            total_issues = len(st.session_state.data)
+            high_priority = summary['priority_counts'].get('HIGH', 0)
+            urgent_count = len(summary['urgent_issues'])
+            negative_sentiment = (st.session_state.data['sentiment'] == 'negative').sum()
+            top_category = st.session_state.data['category'].value_counts().index[0]
+            
+            # Display findings
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("**Critical Issues:**")
+                st.error(f"🚨 {high_priority} High Priority Issues")
+                st.error(f"🚨 {urgent_count} Urgent Issues Requiring Immediate Attention")
+                st.warning(f"😞 {negative_sentiment} Negative Sentiment Posts")
+            
+            with col2:
+                st.markdown("**Top Concerns:**")
+                st.info(f"📊 Most Common Issue: **{top_category.replace('_', ' ').title()}**")
+                if urgent_count > 0:
+                    st.info("⚡ **Action Required:** Review urgent issues above for immediate response")
+                st.info("📈 **Recommendation:** Monitor trending issues closely")
+            
+            # Action items
+            st.markdown("**Recommended Actions:**")
+            action_items = []
+            if high_priority > 0:
+                action_items.append("• Address high priority issues within 24 hours")
+            if urgent_count > 0:
+                action_items.append("• Respond to urgent issues immediately")
+            if negative_sentiment > total_issues * 0.3:
+                action_items.append("• Investigate causes of high negative sentiment")
+            action_items.append("• Monitor social media for emerging issues")
+            
+            for item in action_items:
+                st.markdown(item)
+        
+        # Download data
+        st.sidebar.subheader("Export")
+        if st.sidebar.button("Download Data as CSV"):
+            csv = st.session_state.data.to_csv(index=False)
+            st.sidebar.download_button(
+                label="Download CSV",
+                data=csv,
+                file_name=f"sentiment_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv"
+            )
+
+# Run the application
+if __name__ == "__main__":
+    app = SentimentEarlyWarningSystem()
+    app.run_dashboard()

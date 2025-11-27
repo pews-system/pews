@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: public-sentiment-early-warning-system
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run main.py --server.port $PORT --server.headless true --server.runOnSave false
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: TWITTER_BEARER_TOKEN
+        sync: false
+      - key: REDDIT_CLIENT_ID
+        sync: false
+      - key: REDDIT_CLIENT_SECRET
+        sync: false
+      - key: REDDIT_USER_AGENT
+        sync: false
