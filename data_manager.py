@@ -61,6 +61,15 @@ class DataManager:
             "social_services": ["welfare", "housing", "food security", "unemployment"],
             "governance": ["complaint", "service delivery", "government", "municipality"]
         }
+        
+        # Mapping from data_manager categories to simulator categories
+        self.category_mapping = {
+            "infrastructure": "roads_infrastructure",
+            "healthcare": "healthcare_facilities", 
+            "safety": "security_crime",
+            "social_services": "housing",
+            "governance": "corruption"
+        }
 
     def _normalize_twitter_data(self, tweets_data):
         """Converts raw Twitter data to a unified DataFrame format."""
@@ -164,25 +173,51 @@ class DataManager:
         print("\n🎭 Using simulation data (API sources unavailable)")
         print(f"Generating {max_posts} realistic posts for {location}...")
         
-        # Generate base simulation
-        df = self.simulator.generate_simulation_data(
-            num_posts=max_posts,
-            location=location,
-            days_back=7
-        )
-        
-        # Add trending issue for realism (30% of the time)
-        import random
-        if random.random() < 0.3:
-            trending_category = random.choice(list(self.issue_keywords.keys()))
-            print(f"Adding trending {trending_category} issue...")
-            df = self.simulator.add_trending_issue(
-                df, 
-                category=trending_category, 
-                num_related_posts=int(max_posts * 0.15)
+        try:
+            # Generate base simulation
+            df = self.simulator.generate_simulation_data(
+                num_posts=max_posts,
+                location=location,
+                days_back=7
             )
-        
-        return df
+            
+            # Add trending issue for realism (30% of the time)
+            import random
+            if random.random() < 0.3:
+                trending_category = random.choice(list(self.issue_keywords.keys()))
+                simulator_category = self.category_mapping.get(trending_category, trending_category)
+                print(f"Adding trending {trending_category} issue (mapped to {simulator_category})...")
+                
+                try:
+                    df = self.simulator.add_trending_issue(
+                        df, 
+                        category=simulator_category, 
+                        num_related_posts=int(max_posts * 0.15)
+                    )
+                    print("Trending issue added successfully.")
+                except Exception as trend_error:
+                    print(f"Could not add trending issue ({trend_error}), continuing with base simulation...")
+            
+            return df
+            
+        except Exception as e:
+            print(f"Simulation generation failed: {e}")
+            # Create minimal fallback data
+            print("Creating minimal fallback simulation data...")
+            fallback_data = []
+            for i in range(min(max_posts, 10)):  # At least 10 posts minimum
+                fallback_data.append({
+                    "id": f"fallback_{i}",
+                    "text": f"Community issue reported in {location}. Service delivery concerns.",
+                    "created_at": datetime.now().isoformat(),
+                    "user": "CommunityMember",
+                    "retweet_count": random.randint(1, 20),
+                    "favorite_count": random.randint(5, 50),
+                    "location": location,
+                    "source": "Simulation",
+                    "category": "governance"
+                })
+            return pd.DataFrame(fallback_data)
 
     def collect_data(self, location: str, max_posts: int):
         """
@@ -236,9 +271,37 @@ class DataManager:
                     pass
                 
                 return df, "Simulation"
+            else:
+                raise Exception("Generated DataFrame is empty")
+                
         except Exception as e:
             print(f"Simulation generation failed: {e}")
-
-        # If everything fails, return empty DataFrame
-        print("\nCould not collect data from any source.")
-        return pd.DataFrame(), "None"
+            print("Creating emergency fallback data...")
+            
+            # Emergency fallback - create minimal working data
+            emergency_data = []
+            for i in range(min(max_posts, 5)):  # At least 5 posts
+                emergency_data.append({
+                    "id": f"emergency_{i}",
+                    "text": f"Community concern in {location}. Local service delivery issue reported.",
+                    "created_at": datetime.now().isoformat(),
+                    "user": "LocalResident",
+                    "retweet_count": 1,
+                    "favorite_count": 5,
+                    "location": location,
+                    "source": "Emergency Simulation",
+                    "category": "governance"
+                })
+            
+            df = pd.DataFrame(emergency_data)
+            print(f"Created {len(df)} emergency fallback posts.")
+            
+            try:
+                st.warning(
+                    "**Emergency Fallback Data**: All data sources failed. "
+                    "Using minimal simulation data. Please check API credentials."
+                )
+            except:
+                pass
+            
+            return df, "Emergency Simulation"

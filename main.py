@@ -32,25 +32,69 @@ class SentimentEarlyWarningSystem:
     def collect_data(self, location: str, max_posts: int):
         """Collect and analyze social media data"""
         with st.spinner("Collecting data..."):
-            # Collect tweets/posts using the data manager
-            raw_df, source = self.data_manager.collect_data(location, max_posts)
-            
-            if raw_df.empty:
-                st.error("Failed to collect data from both Twitter and Reddit. Please check your API credentials or try again later.")
-                st.session_state.source = "None"
-                return
-            
-            # Analyze the collected data
-            with st.spinner("Analyzing content..."):
-                analyzed_df = self.analyzer.analyze_tweets(raw_df)
+            try:
+                # Collect tweets/posts using the data manager
+                raw_df, source = self.data_manager.collect_data(location, max_posts)
                 
-                # Generate summary
+                if raw_df.empty or raw_df is None:
+                    st.error("Failed to collect data from both Twitter and Reddit. Using emergency simulation data.")
+                    # Create minimal emergency data
+                    import pandas as pd
+                    from datetime import datetime
+                    emergency_data = []
+                    for i in range(min(max_posts, 3)):
+                        emergency_data.append({
+                            "id": f"emergency_{i}",
+                            "text": f"Community concern in {location}. Local service delivery issue reported.",
+                            "created_at": datetime.now().isoformat(),
+                            "user": "LocalResident",
+                            "retweet_count": 1,
+                            "favorite_count": 5,
+                            "location": location,
+                            "source": "Emergency Simulation",
+                            "category": "governance"
+                        })
+                    raw_df = pd.DataFrame(emergency_data)
+                    source = "Emergency Simulation"
+                
+                # Analyze the collected data
+                with st.spinner("Analyzing content..."):
+                    analyzed_df = self.analyzer.analyze_tweets(raw_df)
+                    
+                    # Generate summary
+                    summary = self.analyzer.generate_summary(analyzed_df)
+                    
+                    # Store in session state
+                    st.session_state.data = analyzed_df
+                    st.session_state.summary = summary
+                    st.session_state.source = source
+                    
+            except Exception as e:
+                st.error(f"Data collection failed: {str(e)}. Using emergency simulation data.")
+                # Create emergency fallback data
+                import pandas as pd
+                from datetime import datetime
+                emergency_data = []
+                for i in range(3):
+                    emergency_data.append({
+                        "id": f"emergency_{i}",
+                        "text": f"Community concern in {location}. Local service delivery issue reported.",
+                        "created_at": datetime.now().isoformat(),
+                        "user": "LocalResident",
+                        "retweet_count": 1,
+                        "favorite_count": 5,
+                        "location": location,
+                        "source": "Emergency Simulation",
+                        "category": "governance"
+                    })
+                
+                raw_df = pd.DataFrame(emergency_data)
+                analyzed_df = self.analyzer.analyze_tweets(raw_df)
                 summary = self.analyzer.generate_summary(analyzed_df)
                 
-                # Store in session state
                 st.session_state.data = analyzed_df
                 st.session_state.summary = summary
-                st.session_state.source = source
+                st.session_state.source = "Emergency Simulation"
     
     def run_dashboard(self):
         """Run the Streamlit dashboard"""
