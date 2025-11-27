@@ -88,78 +88,70 @@ class SentimentEarlyWarningSystem:
         col2.metric("High Priority Issues", summary['priority_counts'].get('HIGH', 0))
         col3.metric("Urgent Issues", len(summary['urgent_issues']))
         
-        # Overview Section
+        # Overview Section - Main Dashboard
         with st.container():
-            st.subheader("Overview")
-            col1, col2, col3 = st.columns(3)
+            st.subheader("📊 Overview Dashboard")
+            col1, col2 = st.columns(2)
             with col1:
                 fig = self.visualizer.create_category_bar_chart(st.session_state.data)
                 st.plotly_chart(fig, use_container_width=True)
             with col2:
                 fig = self.visualizer.create_priority_pie_chart(st.session_state.data)
                 st.plotly_chart(fig, use_container_width=True)
-            with col3:
-                # Add a simple sentiment distribution chart or summary
-                sentiment_counts = st.session_state.data['sentiment'].value_counts()
-                st.bar_chart(sentiment_counts)
+            
+            # Sentiment overview below
+            st.markdown("**Sentiment Distribution**")
+            sentiment_counts = st.session_state.data['sentiment'].value_counts()
+            st.bar_chart(sentiment_counts)
         
-        # Category Analysis Section
+        # Analysis Section - Combined Category and Priority Analysis
         with st.container():
-            st.subheader("Category Analysis")
-            col1, col2, col3 = st.columns(3)
+            st.subheader("🔍 Detailed Analysis")
+            col1, col2 = st.columns(2)
             with col1:
-                fig = self.visualizer.create_category_bar_chart(st.session_state.data)
-                st.plotly_chart(fig, use_container_width=True)
-            with col2:
+                st.markdown("**Sentiment by Category**")
                 fig = self.visualizer.create_sentiment_by_category(st.session_state.data)
                 st.plotly_chart(fig, use_container_width=True)
-            with col3:
+            with col2:
+                st.markdown("**Issue Heatmap**")
                 fig = self.visualizer.create_heatmap(st.session_state.data)
                 st.plotly_chart(fig, use_container_width=True)
-        
-        # Priority Analysis Section
-        with st.container():
-            st.subheader("Priority Analysis")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                fig = self.visualizer.create_sentiment_scatter(st.session_state.data)
-                st.plotly_chart(fig, use_container_width=True)
-            with col2:
-                fig = self.visualizer.create_priority_pie_chart(st.session_state.data)
-                st.plotly_chart(fig, use_container_width=True)
-            with col3:
-                # Add urgency statistics
-                urgency_count = st.session_state.data['is_urgent'].sum()
-                total_count = len(st.session_state.data)
-                st.metric("Urgent Issues", f"{urgency_count}/{total_count}")
-                st.metric("Urgency Rate", f"{urgency_count/total_count*100:.1f}%")
+            
+            # Scatter plot below
+            st.markdown("**Sentiment vs. Urgency Analysis**")
+            fig = self.visualizer.create_sentiment_scatter(st.session_state.data)
+            st.plotly_chart(fig, use_container_width=True)
         
         # Trends Section
         with st.container():
-            st.subheader("Trends")
-            col1, col2, col3 = st.columns([2, 1, 1])  # Wider column for the main chart
+            st.subheader("📈 Trends & Platform Analysis")
+            # Main trend chart
+            fig = self.visualizer.create_trend_line_chart(st.session_state.data)
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Platform and category stats side by side
+            col1, col2 = st.columns(2)
             with col1:
-                fig = self.visualizer.create_trend_line_chart(st.session_state.data)
-                st.plotly_chart(fig, use_container_width=True)
-            with col2:
+                st.markdown("**Platform Distribution**")
                 platform_counts = st.session_state.data['source'].value_counts()
                 st.bar_chart(platform_counts)
-            with col3:
+            with col2:
+                st.markdown("**Top Categories**")
                 top_categories = st.session_state.data['category'].value_counts().head(5)
                 st.bar_chart(top_categories)
         
         # Urgent Issues Section
         with st.container():
-            st.subheader("Urgent Issues")
+            st.subheader("🚨 Urgent Issues")
             urgent_df = pd.DataFrame(summary['urgent_issues'])
             if not urgent_df.empty:
-                st.dataframe(urgent_df)
+                st.dataframe(urgent_df, use_container_width=True)
             else:
                 st.info("No urgent issues detected.")
         
-        # Findings Section
+        # Findings Section - More compact
         with st.container():
-            st.subheader("🔍 Key Findings & Actions Required")
+            st.subheader("🔍 Key Findings & Actions")
             
             # Calculate key insights
             total_issues = len(st.session_state.data)
@@ -168,34 +160,22 @@ class SentimentEarlyWarningSystem:
             negative_sentiment = (st.session_state.data['sentiment'] == 'negative').sum()
             top_category = st.session_state.data['category'].value_counts().index[0]
             
-            # Display findings
-            col1, col2 = st.columns(2)
+            # Display findings in a more compact format
+            col1, col2, col3 = st.columns(3)
             with col1:
-                st.markdown("**Critical Issues:**")
-                st.error(f"🚨 {high_priority} High Priority Issues")
-                st.error(f"🚨 {urgent_count} Urgent Issues Requiring Immediate Attention")
-                st.warning(f"😞 {negative_sentiment} Negative Sentiment Posts")
-            
+                st.metric("High Priority Issues", high_priority)
+                st.metric("Urgent Issues", urgent_count)
             with col2:
-                st.markdown("**Top Concerns:**")
-                st.info(f"📊 Most Common Issue: **{top_category.replace('_', ' ').title()}**")
+                st.metric("Negative Sentiment", f"{negative_sentiment}/{total_issues}")
+                st.metric("Top Category", top_category.replace('_', ' ').title())
+            with col3:
+                st.markdown("**Quick Actions:**")
                 if urgent_count > 0:
-                    st.info("⚡ **Action Required:** Review urgent issues above for immediate response")
-                st.info("📈 **Recommendation:** Monitor trending issues closely")
-            
-            # Action items
-            st.markdown("**Recommended Actions:**")
-            action_items = []
-            if high_priority > 0:
-                action_items.append("• Address high priority issues within 24 hours")
-            if urgent_count > 0:
-                action_items.append("• Respond to urgent issues immediately")
-            if negative_sentiment > total_issues * 0.3:
-                action_items.append("• Investigate causes of high negative sentiment")
-            action_items.append("• Monitor social media for emerging issues")
-            
-            for item in action_items:
-                st.markdown(item)
+                    st.error("⚡ Review urgent issues immediately")
+                if high_priority > 0:
+                    st.warning("🚨 Address high priority issues within 24h")
+                if negative_sentiment > total_issues * 0.3:
+                    st.info("😞 Investigate negative sentiment causes")
         
         # Download data
         st.sidebar.subheader("Export")
