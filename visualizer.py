@@ -1,5 +1,3 @@
-import matplotlib.pyplot as plt
-import seaborn as sns
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -10,8 +8,7 @@ import numpy as np
 class IssueVisualizer:
     def __init__(self):
         """Initialize the visualizer with style settings"""
-        plt.style.use('ggplot')
-        sns.set_palette("viridis")
+        # Removed matplotlib and seaborn dependencies for memory optimization
     
     def create_category_bar_chart(self, df: pd.DataFrame) -> go.Figure:
         """Create a bar chart showing the distribution of issues by category"""
